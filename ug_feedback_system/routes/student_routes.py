@@ -22,6 +22,8 @@ def dashboard():
     """Student dashboard"""
     student_id = session.get('user_id')
     data = get_student_dashboard_data(student_id)
+    if data and data.get('student'):
+        session['is_eligible'] = data['student'].get('is_eligible', session.get('is_eligible'))
     feedback_open = is_feedback_open()
     active_period = get_active_feedback_period()
     

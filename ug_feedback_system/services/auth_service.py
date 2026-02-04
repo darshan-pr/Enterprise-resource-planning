@@ -259,6 +259,9 @@ def student_required(f):
         if not is_student():
             flash('This page is only accessible to students', 'error')
             return redirect(url_for('home'))
+        if session.get('is_eligible') is False and request.endpoint != 'student.dashboard':
+            flash('Your student access is currently disabled. Please contact the administrator.', 'error')
+            return redirect(url_for('student.dashboard'))
         return f(*args, **kwargs)
     return decorated_function
 
