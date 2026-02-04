@@ -48,6 +48,15 @@
 
     cd ug_feedback_system
 
+    ##step 3.1  create .env file and add paste following content
+
+    DB_HOST=localhost
+    DB_PORT=3306
+    DB_USER=root
+    DB_PASSWORD=your_password
+    DB_NAME=ug_feedback_db
+        
+
 ### Step 4 · Initialize the database and seed demo data
 
     python create_test_users.py
