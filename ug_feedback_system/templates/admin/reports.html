@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports - Admin{% endblock %}
+
+{% block content %}
+<div class="container dashboard-container">
+    <div class="page-header">
+        <h1><i class="bi bi-graph-up text-warning me-2"></i>Performance Reports</h1>
+        <p>View faculty performance and course outcome analysis.</p>
+    </div>
+
+    <!-- Faculty Performance Summary -->
+    <div class="form-card mb-4">
+        <h5><i class="bi bi-person-badge me-2"></i>Faculty Performance Summary</h5>
+
+        {% if faculty_summary|length == 0 %}
+        <div class="empty-state py-4">
+            <i class="bi bi-graph-down"></i>
+            <p>No feedback data available yet.</p>
+        </div>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Faculty Name</th>
+                        <th>Department</th>
+                        <th>Feedbacks</th>
+                        <th>Teaching</th>
+                        <th>Communication</th>
+                        <th>Punctuality</th>
+                        <th>Knowledge</th>
+                        <th>Helping</th>
+                        <th>Overall</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in faculty_summary %}
+                    <tr>
+                        <td><strong>{{ f.faculty_name }}</strong></td>
+                        <td>{{ f.department or 'N/A' }}</td>
+                        <td><span class="badge bg-primary">{{ f.feedback_count }}</span></td>
+
+                        {% set metrics = [
+                            f.avg_teaching,
+                            f.avg_communication,
+                            f.avg_punctuality,
+                            f.avg_knowledge,
+                            f.avg_helping
+                        ] %}
+
+                        {% for value in metrics %}
+                        <td>
+                            {% if value is not none %}
+                            {% set width = (value / 5) * 100 %}
+                            {% set rating_class = 'excellent' if value >= 4 else ('good' if value >= 3 else 'average') %}
+                            <div class="rating-bar rating-bar-compact">
+                                <div class="fill {{ rating_class }}" style="width: {{ width }}%;"></div>
+                            </div>
+                            <small>{{ "%.1f"|format(value) }}</small>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+
+                        <td>
+                            {% if f.avg_overall is not none %}
+                            {% set overall_class = 'bg-success' if f.avg_overall >= 4 else ('bg-warning' if f.avg_overall >= 3 else 'bg-danger') %}
+                            <span class="badge {{ overall_class }} fs-6">
+                                {{ "%.1f"|format(f.avg_overall) }}
+                            </span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if f.feedback_count > 0 %}
+                            <a href="{{ url_for('admin.faculty_report', faculty_id=f.faculty_id) }}"
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Course Outcome Summary -->
+    <div class="form-card">
+        <h5><i class="bi bi-list-check me-2"></i>Course Outcome Attainment Summary</h5>
+
+        {% if co_summary|length == 0 %}
+        <div class="empty-state py-4">
+            <i class="bi bi-list-task"></i>
+            <p>No course outcome survey data available yet.</p>
+        </div>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Course</th>
+                        <th>CO</th>
+                        <th>Description</th>
+                        <th>Responses</th>
+                        <th>Avg Attainment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for co in co_summary %}
+                    <tr>
+                        <td>
+                            <strong>{{ co.course_code }}</strong><br>
+                            <small class="text-muted">{{ co.course_name }}</small>
+                        </td>
+                        <td><span class="badge bg-primary">CO{{ co.co_number }}</span></td>
+                        <td>
+                            {{ co.co_description[:60] }}
+                            {% if co.co_description|length > 60 %}...{% endif %}
+                        </td>
+                        <td><span class="badge bg-secondary">{{ co.response_count }}</span></td>
+                        <td>
+                            {% if co.avg_attainment is not none %}
+                            {% set co_width = (co.avg_attainment / 5) * 100 %}
+                            {% set co_class = 'excellent' if co.avg_attainment >= 4 else ('good' if co.avg_attainment >= 3 else 'average') %}
+                            <div class="d-flex align-items-center">
+                                <div class="rating-bar rating-bar-wide me-2">
+                                    <div class="fill {{ co_class }}" style="width: {{ co_width }}%;"></div>
+                                </div>
+                                <span>{{ "%.1f"|format(co.avg_attainment) }}/5</span>
+                            </div>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

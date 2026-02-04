@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Dashboard - UG Feedback System{% endblock %}
+
+{% block content %}
+<div class="container dashboard-container">
+    <!-- Welcome Header with Profile -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="page-header mb-0">
+                <div class="row align-items-center">
+                    <div class="col-md-12">
+                        <h1><i class="bi bi-house-fill text-primary me-2"></i>Welcome, {{ data.student.student_name }}!</h1>
+                        <p class="mb-0">
+                            <span class="badge bg-primary">{{ data.student.usn }}</span>
+                            <span class="badge bg-secondary ms-1">{{ data.student.branch_code or 'N/A' }}</span>
+                            <span class="ms-2 text-muted">Year {{ data.student.year }} | Semester {{ data.student.semester }}</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+            {% if feedback_open %}
+            <span class="badge badge-status badge-open fs-6">
+                <i class="bi bi-circle-fill me-1"></i>Feedback Open
+            </span>
+            {% else %}
+            <span class="badge badge-status badge-closed fs-6">
+                <i class="bi bi-circle-fill me-1"></i>Feedback Closed
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Profile Card -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="form-card" style="background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%); color: white;">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <div class="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center" 
+                             style="width: 80px; height: 80px; font-size: 2rem; font-weight: bold;">
+                            {{ data.student.student_name[:1].upper() }}
+                        </div>
+                    </div>
+                    <div class="col">
+                        <h3 class="mb-1">{{ data.student.student_name }}</h3>
+                        <p class="mb-0 opacity-75">
+                            <i class="bi bi-envelope me-1"></i>{{ data.student.email }}
+                        </p>
+                    </div>
+                    <div class="col-auto d-none d-md-block">
+                        <div class="text-end">
+                            <div class="mb-2">
+                                <span class="badge bg-light text-dark me-1">
+                                    <i class="bi bi-mortarboard me-1"></i>{{ data.student.branch_name or 'Branch not set' }}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="badge bg-light text-dark me-1">
+                                    <i class="bi bi-calendar me-1"></i>Year {{ data.student.year }}
+                                </span>
+                                <span class="badge bg-light text-dark">
+                                    <i class="bi bi-book me-1"></i>Semester {{ data.student.semester }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="stat-card">
+                <div class="icon primary">
+                    <i class="bi bi-book"></i>
+                </div>
+                <h3>{{ data.enrolled_courses }}</h3>
+                <p>Enrolled Courses</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="stat-card">
+                <div class="icon success">
+                    <i class="bi bi-chat-square-text"></i>
+                </div>
+                <h3>{{ data.feedbacks_submitted }}</h3>
+                <p>Feedbacks Submitted</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="stat-card">
+                <div class="icon secondary">
+                    <i class="bi bi-list-check"></i>
+                </div>
+                <h3>{{ data.co_surveys_submitted }}</h3>
+                <p>CO Surveys Completed</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Period Info -->
+    {% if active_period %}
+    <div class="alert alert-info mb-4">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>{{ active_period.period_name }}</strong> - 
+        Feedback window is open from {{ active_period.start_date.strftime('%d %b %Y') }} 
+        to {{ active_period.end_date.strftime('%d %b %Y') }}
+    </div>
+    {% endif %}
+
+    <!-- Quick Actions -->
+    <h4 class="mb-3"><i class="bi bi-lightning-fill text-warning me-2"></i>Quick Actions</h4>
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <a href="{{ url_for('student.faculty_feedback') }}" class="action-card {% if not feedback_open %}opacity-50{% endif %}">
+                <div class="icon bg-primary bg-opacity-10 text-primary">
+                    <i class="bi bi-chat-square-text-fill"></i>
+                </div>
+                <h4>Faculty Feedback</h4>
+                <p>Rate your teachers on various parameters</p>
+                {% if not feedback_open %}
+                <span class="badge bg-secondary">Currently Closed</span>
+                {% endif %}
+            </a>
+        </div>
+        <div class="col-md-4 mb-4">
+            <a href="{{ url_for('student.co_survey') }}" class="action-card {% if not feedback_open %}opacity-50{% endif %}">
+                <div class="icon bg-success bg-opacity-10 text-success">
+                    <i class="bi bi-list-check"></i>
+                </div>
+                <h4>Course Outcome Survey</h4>
+                <p>Rate your understanding of course objectives</p>
+                {% if not feedback_open %}
+                <span class="badge bg-secondary">Currently Closed</span>
+                {% endif %}
+            </a>
+        </div>
+        <div class="col-md-4 mb-4">
+            <a href="{{ url_for('student.my_courses') }}" class="action-card">
+                <div class="icon bg-info bg-opacity-10 text-info">
+                    <i class="bi bi-book-fill"></i>
+                </div>
+                <h4>My Courses</h4>
+                <p>View enrolled courses and enroll in new ones</p>
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <a href="{{ url_for('student.feedback_history') }}" class="action-card">
+                <div class="icon bg-warning bg-opacity-10 text-warning">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+                <h4>Feedback History</h4>
+                <p>View your previously submitted feedbacks</p>
+            </a>
+        </div>
+        <div class="col-md-6 mb-4">
+            <a href="{{ url_for('student.co_survey_history') }}" class="action-card">
+                <div class="icon bg-purple bg-opacity-10" style="background: rgba(114, 9, 183, 0.1); color: #7209b7;">
+                    <i class="bi bi-file-earmark-text"></i>
+                </div>
+                <h4>CO Survey History</h4>
+                <p>View your course outcome survey responses</p>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+
+{% block title %}Feedback Control - Admin{% endblock %}
+
+{% block content %}
+<div class="container dashboard-container">
+    <div class="page-header">
+        <h1><i class="bi bi-sliders text-primary me-2"></i>Feedback Control</h1>
+        <p>Manage feedback window and periods.</p>
+    </div>
+
+    <div class="row">
+        <!-- Quick Toggle -->
+        <div class="col-lg-4 mb-4">
+            <div class="form-card h-100">
+                <h5><i class="bi bi-toggle-on me-2"></i>Quick Toggle</h5>
+                
+                <div class="text-center py-4">
+                    <div class="mb-3">
+                        {% if settings.get('feedback_open') == 'true' %}
+                        <span class="badge badge-status badge-open fs-4 px-4 py-2">
+                            <i class="bi bi-unlock me-2"></i>OPEN
+                        </span>
+                        {% else %}
+                        <span class="badge badge-status badge-closed fs-4 px-4 py-2">
+                            <i class="bi bi-lock me-2"></i>CLOSED
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <form action="{{ url_for('admin.toggle_feedback') }}" method="POST" class="d-inline">
+                        {% if settings.get('feedback_open') == 'true' %}
+                        <input type="hidden" name="is_open" value="false">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-lock me-2"></i>Close Feedback Window
+                        </button>
+                        {% else %}
+                        <input type="hidden" name="is_open" value="true">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-unlock me-2"></i>Open Feedback Window
+                        </button>
+                        {% endif %}
+                    </form>
+                </div>
+                
+                <hr>
+                
+                <h6>Current Settings</h6>
+                <ul class="list-unstyled small">
+                    <li><strong>Academic Year:</strong> {{ settings.get('current_academic_year', 'N/A') }}</li>
+                    <li><strong>Semester:</strong> {{ settings.get('current_semester', 'N/A') }}</li>
+                    <li><strong>Anonymous Allowed:</strong> {{ settings.get('allow_anonymous', 'true') }}</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Create Period -->
+        <div class="col-lg-8 mb-4">
+            <div class="form-card">
+                <h5><i class="bi bi-calendar-plus me-2"></i>Create New Feedback Period</h5>
+                
+                <form action="{{ url_for('admin.create_period') }}" method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Period Name</label>
+                            <input type="text" class="form-control" name="period_name" 
+                                   placeholder="e.g., End Semester Feedback 2025-26" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Academic Year</label>
+                            <input type="text" class="form-control" name="academic_year" 
+                                   value="2025-26" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Semester</label>
+                            <select class="form-select" name="semester" required>
+                                <option value="1">Semester 1</option>
+                                <option value="2">Semester 2</option>
+                                <option value="3">Semester 3</option>
+                                <option value="4">Semester 4</option>
+                                <option value="5" selected>Semester 5</option>
+                                <option value="6">Semester 6</option>
+                                <option value="7">Semester 7</option>
+                                <option value="8">Semester 8</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Start Date & Time</label>
+                            <input type="datetime-local" class="form-control" name="start_date" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">End Date & Time</label>
+                            <input type="datetime-local" class="form-control" name="end_date" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Feedback Type</label>
+                            <select class="form-select" name="feedback_type">
+                                <option value="both">Both (Faculty + CO)</option>
+                                <option value="faculty">Faculty Feedback Only</option>
+                                <option value="course_outcome">CO Survey Only</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-2"></i>Create Period
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Existing Periods -->
+    <div class="form-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0"><i class="bi bi-calendar-range me-2"></i>Feedback Periods</h5>
+            <form action="{{ url_for('admin.deactivate_periods') }}" method="POST" class="d-inline">
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-x-circle me-1"></i>Deactivate All
+                </button>
+            </form>
+        </div>
+        
+        {% if periods|length == 0 %}
+        <div class="empty-state py-4">
+            <i class="bi bi-calendar-x"></i>
+            <p>No feedback periods created yet.</p>
+        </div>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Period Name</th>
+                        <th>Academic Year</th>
+                        <th>Duration</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for period in periods %}
+                    <tr>
+                        <td><strong>{{ period.period_name }}</strong></td>
+                        <td>{{ period.academic_year }} - Sem {{ period.semester }}</td>
+                        <td>
+                            {{ period.start_date.strftime('%d %b') }} - 
+                            {{ period.end_date.strftime('%d %b %Y') }}
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ period.feedback_type }}</span>
+                        </td>
+                        <td>
+                            {% if period.is_active %}
+                            <span class="badge badge-status badge-open">Active</span>
+                            {% else %}
+                            <span class="badge badge-status badge-closed">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not period.is_active %}
+                            <form action="{{ url_for('admin.activate_period', period_id=period.period_id) }}" 
+                                  method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    <i class="bi bi-check-lg"></i> Activate
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="text-success"><i class="bi bi-check-circle-fill"></i> Current</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
