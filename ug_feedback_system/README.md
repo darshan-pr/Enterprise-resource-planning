@@ -44,11 +44,15 @@
 
         .\.venv\Scripts\activate.bat
 
+### Step 2.1 · Install dependencies
+
+    pip install -r requirements.txt
+
 ### Step 3 · Enter the application directory
 
     cd ug_feedback_system
 
-    ##step 3.1  create .env file and add paste following content
+### Step 3.1  create .env file and add paste following content
 
     DB_HOST=localhost
     DB_PORT=3306
