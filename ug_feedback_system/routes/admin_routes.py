@@ -1,5 +1,6 @@
 # Admin Routes - All admin panel routes
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
+from datetime import datetime
 from services.auth_service import admin_required, log_admin_action, get_current_user
 from services.admin_service import (
     get_dashboard_stats, get_all_settings, update_setting, toggle_feedback_window,
@@ -7,7 +8,9 @@ from services.admin_service import (
     deactivate_all_periods, get_all_students_with_eligibility, update_student_eligibility,
     bulk_update_eligibility, get_all_faculty, get_faculty_course_assignments,
     assign_faculty_to_course, remove_faculty_assignment, get_feedback_summary_by_faculty,
-    get_feedback_details_by_faculty, get_recent_audit_logs, is_feedback_open
+    get_feedback_details_by_faculty, get_recent_audit_logs, is_feedback_open,
+    update_feedback_period, delete_feedback_period, get_feedback_period_by_id, auto_activate_scheduled_periods,
+    close_feedback_period, open_feedback_period
 )
 from services.course_service import list_all_courses, create_course, get_all_courses_with_outcomes, add_course_outcome, delete_course_outcome
 from services.faculty_service import add_faculty
@@ -34,7 +37,8 @@ def feedback_control():
     """Feedback window control page"""
     settings = get_all_settings()
     periods = get_all_feedback_periods()
-    return render_template('admin/feedback_control.html', settings=settings, periods=periods)
+    current_time = datetime.now()
+    return render_template('admin/feedback_control.html', settings=settings, periods=periods, current_time=current_time)
 
 
 @admin_bp.route('/toggle-feedback', methods=['POST'])
@@ -109,6 +113,91 @@ def deactivate_periods():
         flash('All feedback periods deactivated', 'success')
     else:
         flash(f"Failed to deactivate: {result.get('message')}", 'error')
+    
+    return redirect(url_for('admin.feedback_control'))
+
+
+@admin_bp.route('/close-period/<int:period_id>', methods=['POST'])
+@admin_required
+def close_period(period_id):
+    """Close a single feedback period"""
+    admin_id = session.get('user_id')
+    result = close_feedback_period(period_id, admin_id)
+    if result['success']:
+        log_admin_action(admin_id, f"Closed feedback period ID: {period_id}", 'feedback_period', period_id)
+        flash('Feedback period closed successfully', 'success')
+    else:
+        flash(f"Failed to close period: {result.get('message')}", 'error')
+    return redirect(url_for('admin.feedback_control'))
+
+
+@admin_bp.route('/open-period/<int:period_id>', methods=['POST'])
+@admin_required
+def open_period(period_id):
+    """Open/reopen a single feedback period"""
+    admin_id = session.get('user_id')
+    result = open_feedback_period(period_id, admin_id)
+    if result['success']:
+        log_admin_action(admin_id, f"Opened feedback period ID: {period_id}", 'feedback_period', period_id)
+        flash('Feedback period opened successfully', 'success')
+    else:
+        flash(f"Failed to open period: {result.get('message')}", 'error')
+    return redirect(url_for('admin.feedback_control'))
+
+
+@admin_bp.route('/edit-period/<int:period_id>', methods=['POST'])
+@admin_required
+def edit_period(period_id):
+    """Update an existing feedback period"""
+    admin_id = session.get('user_id')
+    
+    period_name = request.form.get('period_name')
+    academic_year = request.form.get('academic_year')
+    semester = request.form.get('semester')
+    start_date = request.form.get('start_date')
+    end_date = request.form.get('end_date')
+    feedback_type = request.form.get('feedback_type', 'both')
+    
+    result = update_feedback_period(period_id, period_name, academic_year, semester, start_date, end_date, feedback_type)
+    
+    if result['success']:
+        log_admin_action(admin_id, f"Updated feedback period: {period_name}", 'feedback_period', period_id)
+        flash('Feedback period updated successfully', 'success')
+    else:
+        flash(f"Failed to update period: {result.get('message')}", 'error')
+    
+    return redirect(url_for('admin.feedback_control'))
+
+
+@admin_bp.route('/delete-period/<int:period_id>', methods=['POST'])
+@admin_required
+def delete_period(period_id):
+    """Delete a feedback period"""
+    admin_id = session.get('user_id')
+    
+    result = delete_feedback_period(period_id)
+    
+    if result['success']:
+        log_admin_action(admin_id, f"Deleted feedback period ID: {period_id}", 'feedback_period', period_id)
+        flash('Feedback period deleted successfully', 'success')
+    else:
+        flash(f"Failed to delete: {result.get('message')}", 'error')
+    
+    return redirect(url_for('admin.feedback_control'))
+
+
+@admin_bp.route('/auto-activate-periods', methods=['POST'])
+@admin_required
+def auto_activate():
+    """Manually trigger auto-activation of scheduled periods"""
+    admin_id = session.get('user_id')
+    result = auto_activate_scheduled_periods()
+    
+    if result['success']:
+        log_admin_action(admin_id, "Triggered auto-activation of scheduled periods", 'feedback_period')
+        flash('Periods auto-activated based on schedule', 'success')
+    else:
+        flash(f"Failed: {result.get('message')}", 'error')
     
     return redirect(url_for('admin.feedback_control'))
 

@@ -179,7 +179,10 @@
                         <td>{{ student.student_name }}</td>
                         <td>{{ student.email }}</td>
                         <td><span class="badge bg-secondary">{{ student.branch_code or 'N/A' }}</span></td>
-                        <td>Year {{ student.year }} / Sem {{ student.semester }}</td>
+                        <td>
+                            Year {{ student.year }} / Sem {{ student.semester }}
+                            {% if student.section %}<br><small class="text-muted">Sec {{ student.section }}</small>{% endif %}
+                        </td>
                         <td>
                             {% if student.is_eligible %}
                             <span class="badge badge-status badge-eligible">Eligible</span>

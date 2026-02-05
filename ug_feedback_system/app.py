@@ -9,6 +9,7 @@ from routes.faculty_routes import faculty_bp
 from routes.feedback_routes import feedback_bp
 
 from services.auth_service import get_current_user, is_logged_in, is_admin, is_student
+from services.admin_service import auto_activate_scheduled_periods
 
 
 def create_app():
@@ -23,6 +24,16 @@ def create_app():
     app.register_blueprint(course_bp)
     app.register_blueprint(faculty_bp)
     app.register_blueprint(feedback_bp)
+
+    # Auto-activate scheduled feedback periods before every request
+    @app.before_request
+    def auto_activate_periods():
+        """Automatically activate/deactivate periods based on schedule"""
+        try:
+            auto_activate_scheduled_periods()
+        except Exception as e:
+            # Log error but don't break the app
+            print(f"Error in auto-activation: {e}")
 
     # Context processor to make user info available in all templates
     @app.context_processor

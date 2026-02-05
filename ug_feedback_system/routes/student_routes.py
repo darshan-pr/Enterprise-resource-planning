@@ -10,7 +10,7 @@ from services.feedback_service import (
     get_student_feedback_history, get_course_outcomes_for_student,
     submit_co_survey, get_student_co_survey_history
 )
-from services.admin_service import is_feedback_open, get_active_feedback_period
+from services.admin_service import is_feedback_open, get_active_feedback_period, is_student_in_feedback_period, get_upcoming_periods_for_student, get_active_period_for_student
 from config import CURRENT_ACADEMIC_YEAR, CURRENT_SEMESTER
 
 student_bp = Blueprint('student', __name__, url_prefix='/student')
@@ -24,8 +24,10 @@ def dashboard():
     data = get_student_dashboard_data(student_id)
     if data and data.get('student'):
         session['is_eligible'] = data['student'].get('is_eligible', session.get('is_eligible'))
-    feedback_open = is_feedback_open()
-    active_period = get_active_feedback_period()
+    
+    # Check if feedback is open specifically for this student's semester
+    feedback_open = is_student_in_feedback_period(student_id)
+    active_period = get_active_period_for_student(student_id)
     
     return render_template('student/dashboard.html', 
                          data=data, 
@@ -73,11 +75,28 @@ def enroll_course():
 @eligible_student_required
 def faculty_feedback():
     """Faculty feedback page"""
+    student_id = session.get('user_id')
+    
     if not is_feedback_open():
-        flash('Feedback submission is currently closed', 'warning')
+        # Show upcoming periods
+        upcoming = get_upcoming_periods_for_student(student_id)
+        if upcoming:
+            next_period = upcoming[0]
+            flash(f"Feedback submission is currently closed. Next period opens on {next_period['start_date'].strftime('%d %b %Y at %H:%M')}", 'warning')
+        else:
+            flash('Feedback submission is currently closed', 'warning')
         return redirect(url_for('student.dashboard'))
     
-    student_id = session.get('user_id')
+    # Check if student's semester matches the active feedback period
+    if not is_student_in_feedback_period(student_id):
+        upcoming = get_upcoming_periods_for_student(student_id)
+        if upcoming:
+            next_period = upcoming[0]
+            flash(f"Feedback is not open for your semester at this time. Your next feedback period: {next_period['period_name']} ({next_period['start_date'].strftime('%d %b')} - {next_period['end_date'].strftime('%d %b %Y')})", 'info')
+        else:
+            flash('Feedback is not open for your semester at this time', 'warning')
+        return redirect(url_for('student.dashboard'))
+    
     targets = get_available_feedback_targets(student_id)
     
     return render_template('student/faculty_feedback.html', targets=targets)
@@ -92,6 +111,11 @@ def submit_faculty_feedback_route():
         return redirect(url_for('student.dashboard'))
     
     student_id = session.get('user_id')
+    
+    # Check if student's semester matches the active feedback period
+    if not is_student_in_feedback_period(student_id):
+        flash('Feedback is not open for your semester at this time', 'error')
+        return redirect(url_for('student.dashboard'))
     faculty_id = request.form.get('faculty_id')
     course_id = request.form.get('course_id')
     
@@ -137,6 +161,12 @@ def co_survey():
         return redirect(url_for('student.dashboard'))
     
     student_id = session.get('user_id')
+    
+    # Check if student's semester matches the active feedback period
+    if not is_student_in_feedback_period(student_id):
+        flash('Survey is not open for your semester at this time', 'warning')
+        return redirect(url_for('student.dashboard'))
+    
     outcomes = get_course_outcomes_for_student(student_id)
     
     # Group by course
@@ -163,6 +193,11 @@ def submit_co_survey_route():
         return redirect(url_for('student.dashboard'))
     
     student_id = session.get('user_id')
+    
+    # Check if student's semester matches the active feedback period
+    if not is_student_in_feedback_period(student_id):
+        flash('Survey is not open for your semester at this time', 'error')
+        return redirect(url_for('student.dashboard'))
     course_id = request.form.get('course_id')
     
     # Parse CO responses

@@ -143,7 +143,7 @@ def get_student_feedback_history(student_id):
 
 
 def get_available_feedback_targets(student_id):
-    """Get faculty-course combinations available for feedback from a student"""
+    """Get faculty-course combinations available for feedback from a student (filtered by section)"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
@@ -151,14 +151,16 @@ def get_available_feedback_targets(student_id):
     period_id = period['period_id'] if period else None
     
     try:
-        # Get student's enrolled courses and their assigned faculty
+        # Get student's enrolled courses and their assigned faculty (filtered by student's section)
         cursor.execute(
             """
             SELECT DISTINCT fca.faculty_id, fca.course_id, f.faculty_name, 
                    c.course_name, c.course_code, fca.section
             FROM student_enrollments se
+            JOIN students s ON se.student_id = s.student_id
             JOIN faculty_course_assignments fca ON se.course_id = fca.course_id 
                 AND fca.is_active = TRUE
+                AND (fca.section = s.section OR fca.section IS NULL OR s.section IS NULL)
             JOIN faculty f ON fca.faculty_id = f.faculty_id AND f.is_active = TRUE
             JOIN courses c ON fca.course_id = c.course_id
             LEFT JOIN faculty_feedback ff ON ff.student_id = se.student_id 
@@ -277,11 +279,12 @@ def get_co_survey_summary():
                 c.course_id, c.course_name, c.course_code,
                 co.co_id, co.co_number, co.co_description,
                 COUNT(cos.survey_id) as response_count,
-                ROUND(AVG(cos.attainment_level), 2) as avg_attainment
+                COALESCE(ROUND(AVG(cos.attainment_level), 2), 0) as avg_attainment
             FROM courses c
             JOIN course_outcomes co ON c.course_id = co.course_id
             LEFT JOIN course_outcome_survey cos ON co.co_id = cos.co_id
-            GROUP BY c.course_id, co.co_id
+            GROUP BY c.course_id, c.course_name, c.course_code, co.co_id, co.co_number, co.co_description
+            HAVING COUNT(cos.survey_id) > 0
             ORDER BY c.course_name, co.co_number
             """
         )

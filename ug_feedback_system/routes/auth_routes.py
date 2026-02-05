@@ -82,7 +82,10 @@ def register():
         flash(f'Year {year} students should be in semester {expected_semesters[0]} or {expected_semesters[1]}', 'error')
         return redirect(url_for('auth.register_page'))
     
-    result = register_new_student(student_name, email, password, usn, branch_id, year, semester)
+    # Get optional section
+    section = request.form.get('section', '').strip() or None
+    
+    result = register_new_student(student_name, email, password, usn, branch_id, year, semester, section)
     
     if result['success']:
         flash('Registration successful! Please login.', 'success')

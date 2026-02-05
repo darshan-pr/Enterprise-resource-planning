@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS students (
     branch_id INT,
     year INT,
     semester INT,
+    section VARCHAR(10),
     is_eligible BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (branch_id) REFERENCES branches(branch_id) ON DELETE SET NULL
@@ -94,6 +95,7 @@ CREATE TABLE IF NOT EXISTS feedback_periods (
     start_date DATETIME NOT NULL,
     end_date DATETIME NOT NULL,
     is_active BOOLEAN DEFAULT FALSE,
+    is_closed BOOLEAN DEFAULT FALSE,
     feedback_type ENUM('faculty', 'course_outcome', 'both') DEFAULT 'both',
     created_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

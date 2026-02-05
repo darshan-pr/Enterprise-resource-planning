@@ -18,7 +18,7 @@ def verify_password(password, password_hash):
 
 # ==================== STUDENT AUTHENTICATION ====================
 
-def register_new_student(student_name, email, password, usn, branch_id, year, semester):
+def register_new_student(student_name, email, password, usn, branch_id, year, semester, section=None):
     """Register a new student with hashed password"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -27,10 +27,10 @@ def register_new_student(student_name, email, password, usn, branch_id, year, se
         password_hash = hash_password(password)
         cursor.execute(
             """
-            INSERT INTO students (student_name, email, password_hash, usn, branch_id, year, semester)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO students (student_name, email, password_hash, usn, branch_id, year, semester, section)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (student_name, email, password_hash, usn, branch_id, year, semester)
+            (student_name, email, password_hash, usn, branch_id, year, semester, section)
         )
         conn.commit()
         return {"success": True, "message": "Student registered successfully"}

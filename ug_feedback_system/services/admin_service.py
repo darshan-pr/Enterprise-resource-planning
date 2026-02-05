@@ -45,9 +45,24 @@ def update_setting(key, value, admin_id=None):
 
 
 def is_feedback_open():
-    """Check if feedback submission is currently open"""
-    settings = get_all_settings()
-    return settings.get('feedback_open', 'false').lower() == 'true'
+    """Check if any feedback period is currently active and not closed"""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        # Period is open if: within date range AND not manually closed
+        cursor.execute(
+            """
+            SELECT COUNT(*) as count FROM feedback_periods 
+            WHERE NOW() BETWEEN start_date AND end_date 
+            AND (is_closed = FALSE OR is_closed IS NULL)
+            """
+        )
+        result = cursor.fetchone()
+        return result['count'] > 0
+    finally:
+        cursor.close()
+        conn.close()
 
 
 def toggle_feedback_window(is_open, admin_id=None):
@@ -101,16 +116,17 @@ def get_all_feedback_periods():
 
 
 def get_active_feedback_period():
-    """Get currently active feedback period"""
+    """Get currently active feedback period (within date range and not closed)"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
     try:
+        # Period is active if: within date range AND not manually closed
         cursor.execute(
             """
             SELECT * FROM feedback_periods 
-            WHERE is_active = TRUE 
-            AND NOW() BETWEEN start_date AND end_date
+            WHERE NOW() BETWEEN start_date AND end_date 
+            AND (is_closed = FALSE OR is_closed IS NULL)
             LIMIT 1
             """
         )
@@ -120,22 +136,54 @@ def get_active_feedback_period():
         conn.close()
 
 
-def activate_feedback_period(period_id, admin_id):
-    """Activate a feedback period (deactivates others)"""
+def is_student_in_feedback_period(student_id):
+    """Check if student's semester has an active feedback period (within date range and not closed)"""
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     
     try:
-        # Deactivate all periods
-        cursor.execute("UPDATE feedback_periods SET is_active = FALSE")
-        # Activate selected period
+        # Check if there's an active period for student's semester
         cursor.execute(
-            "UPDATE feedback_periods SET is_active = TRUE WHERE period_id = %s",
+            """
+            SELECT COUNT(*) as count
+            FROM feedback_periods fp
+            JOIN students s ON fp.semester = s.semester
+            WHERE s.student_id = %s 
+            AND NOW() BETWEEN fp.start_date AND fp.end_date
+            AND (fp.is_closed = FALSE OR fp.is_closed IS NULL)
+            """,
+            (student_id,)
+        )
+        result = cursor.fetchone()
+        return result['count'] > 0
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def activate_feedback_period(period_id, admin_id):
+    """Activate/Open a feedback period manually (clears is_closed flag)"""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        # Get period details
+        cursor.execute(
+            "SELECT semester FROM feedback_periods WHERE period_id = %s",
+            (period_id,)
+        )
+        period = cursor.fetchone()
+        
+        if not period:
+            return {"success": False, "message": "Period not found"}
+        
+        # Clear is_closed flag to open the period
+        cursor.execute(
+            "UPDATE feedback_periods SET is_closed = FALSE WHERE period_id = %s",
             (period_id,)
         )
         conn.commit()
-        # Also open feedback window
-        toggle_feedback_window(True, admin_id)
+        
         return {"success": True}
     except Exception as e:
         conn.rollback()
@@ -146,18 +194,211 @@ def activate_feedback_period(period_id, admin_id):
 
 
 def deactivate_all_periods(admin_id):
-    """Deactivate all feedback periods and close feedback window"""
+    """Deactivate all feedback periods"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         cursor.execute("UPDATE feedback_periods SET is_active = FALSE")
         conn.commit()
-        toggle_feedback_window(False, admin_id)
         return {"success": True}
     except Exception as e:
         conn.rollback()
         return {"success": False, "message": str(e)}
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def close_feedback_period(period_id, admin_id):
+    """Close a specific feedback period (manual override)"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Set is_closed = TRUE to manually close the period
+        cursor.execute(
+            "UPDATE feedback_periods SET is_closed = TRUE WHERE period_id = %s",
+            (period_id,)
+        )
+        if cursor.rowcount == 0:
+            conn.rollback()
+            return {"success": False, "message": "Period not found"}
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "message": str(e)}
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def open_feedback_period(period_id, admin_id):
+    """Open a specific feedback period (manual override - clear is_closed flag)"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Set is_closed = FALSE to manually reopen the period
+        cursor.execute(
+            "UPDATE feedback_periods SET is_closed = FALSE WHERE period_id = %s",
+            (period_id,)
+        )
+        if cursor.rowcount == 0:
+            conn.rollback()
+            return {"success": False, "message": "Period not found"}
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "message": str(e)}
+    finally:
+        cursor.close()
+        conn.close()
+def auto_activate_scheduled_periods():
+    """Auto-activate periods that are within their scheduled time (respects is_closed flag)"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Note: We no longer auto-activate/deactivate based on is_active
+        # The system now uses date range + is_closed flag for determining active status
+        # This function can be used to reset is_closed for periods entering their window
+        # But by default, we don't override manual closures
+        
+        # Just ensure is_active reflects current date status (for legacy compatibility)
+        cursor.execute(
+            """
+            UPDATE feedback_periods 
+            SET is_active = CASE 
+                WHEN NOW() BETWEEN start_date AND end_date AND (is_closed = FALSE OR is_closed IS NULL) THEN TRUE
+                ELSE FALSE
+            END
+            """
+        )
+        
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "message": str(e)}
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def update_feedback_period(period_id, period_name, academic_year, semester, start_date, end_date, feedback_type):
+    """Update an existing feedback period"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            """
+            UPDATE feedback_periods 
+            SET period_name = %s, academic_year = %s, semester = %s, 
+                start_date = %s, end_date = %s, feedback_type = %s
+            WHERE period_id = %s
+            """,
+            (period_name, academic_year, semester, start_date, end_date, feedback_type, period_id)
+        )
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "message": str(e)}
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def delete_feedback_period(period_id):
+    """Delete a feedback period"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if period has associated feedback
+        cursor.execute(
+            "SELECT COUNT(*) as count FROM faculty_feedback WHERE period_id = %s",
+            (period_id,)
+        )
+        feedback_count = cursor.fetchone()[0]
+        
+        if feedback_count > 0:
+            return {"success": False, "message": f"Cannot delete: {feedback_count} feedback responses are linked to this period"}
+        
+        cursor.execute("DELETE FROM feedback_periods WHERE period_id = %s", (period_id,))
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "message": str(e)}
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_feedback_period_by_id(period_id):
+    """Get a specific feedback period by ID"""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute(
+            "SELECT * FROM feedback_periods WHERE period_id = %s",
+            (period_id,)
+        )
+        return cursor.fetchone()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_upcoming_periods_for_student(student_id):
+    """Get upcoming feedback periods for a student's semester"""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute(
+            """
+            SELECT fp.* 
+            FROM feedback_periods fp
+            JOIN students s ON fp.semester = s.semester
+            WHERE s.student_id = %s 
+            AND fp.start_date > NOW()
+            ORDER BY fp.start_date ASC
+            LIMIT 3
+            """,
+            (student_id,)
+        )
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_active_period_for_student(student_id):
+    """Get currently active feedback period for a specific student's semester"""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute(
+            """
+            SELECT fp.* 
+            FROM feedback_periods fp
+            JOIN students s ON fp.semester = s.semester
+            WHERE s.student_id = %s 
+            AND NOW() BETWEEN fp.start_date AND fp.end_date 
+            AND (fp.is_closed = FALSE OR fp.is_closed IS NULL)
+            LIMIT 1
+            """,
+            (student_id,)
+        )
+        return cursor.fetchone()
     finally:
         cursor.close()
         conn.close()
