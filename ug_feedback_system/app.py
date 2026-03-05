@@ -1,5 +1,5 @@
-from flask import Flask, render_template, redirect, url_for, session
-from config import SECRET_KEY, SESSION_LIFETIME
+from flask import Flask, render_template, redirect, url_for, jsonify
+from config import SECRET_KEY, SESSION_LIFETIME, DEBUG, HOST, PORT
 
 from routes.auth_routes import auth_bp
 from routes.admin_routes import admin_bp
@@ -54,6 +54,11 @@ def create_app():
             return redirect(url_for('student.dashboard'))
         return render_template("landing.html")
 
+    @app.route("/health")
+    def health():
+        """Health endpoint for deployment checks."""
+        return jsonify({"status": "ok"}), 200
+
     # Legacy routes for backward compatibility - redirect to proper pages
     @app.route("/register-student")
     def register_student_page():
@@ -98,4 +103,4 @@ def create_app():
 
 
 if __name__ == "__main__":
-    create_app().run(debug=True)
+    create_app().run(host=HOST, port=PORT, debug=DEBUG)
