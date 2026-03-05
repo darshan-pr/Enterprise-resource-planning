@@ -3,6 +3,7 @@
 Script to create test users for the UG Feedback System
 """
 import bcrypt
+import sys
 from db.connection import get_db_connection
 
 def hash_password(password):
@@ -96,15 +97,17 @@ def create_test_users():
         print("\n--- Test Credentials ---")
         print("Admin: username=admin, password=admin123")
         print("Student: email=student@test.com, password=student123 (Sem 5)")
+        return True
         
     except Exception as e:
         conn.rollback()
         print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
+        return False
     finally:
         cursor.close()
         conn.close()
 
 if __name__ == '__main__':
-    create_test_users()
+    sys.exit(0 if create_test_users() else 1)
