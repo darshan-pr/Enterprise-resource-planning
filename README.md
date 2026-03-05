@@ -78,6 +78,7 @@ Use either standard DB vars or URL-style cloud vars.
 ```env
 SECRET_KEY=replace-with-a-strong-random-value
 DEBUG=False
+SEED_TEST_USERS=false
 ACADEMIC_YEAR=2025-26
 SEMESTER=2
 
@@ -93,24 +94,25 @@ DB_NAME=ug_feedback_db
 ```
 
 ## Deploy on Railway
-1. Push this folder (`ug_feedback_system`) to a GitHub repo.
+1. Push this repository to GitHub.
 2. Create a new Railway project from that repo.
 3. Add a MySQL service in Railway.
 4. Set environment variables in Railway:
    - `SECRET_KEY`
    - `DEBUG=False`
+   - `SEED_TEST_USERS=true` (only for first deploy to create demo credentials, then set back to `false`)
    - `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, `MYSQLDATABASE`
    - or a single `DATABASE_URL`/`MYSQL_URL`
 5. Deploy. Railway will run:
-   - `gunicorn wsgi:app --bind 0.0.0.0:$PORT`
+   - `./start.sh`
 
 ## Railway Deployment Checklist
 - [ ] Repository pushed to GitHub.
 - [ ] Railway project linked to this repository.
-- [ ] Root directory set to `ug_feedback_system` (if repo has parent folders).
 - [ ] MySQL service added in the same Railway project.
-- [ ] Variables set: `SECRET_KEY`, `DEBUG=False`, and DB connection variables.
+- [ ] Variables set: `SECRET_KEY`, `DEBUG=False`, `SEED_TEST_USERS=true`, and DB connection variables.
 - [ ] First deploy completed with green status.
+- [ ] Confirm test credentials work, then set `SEED_TEST_USERS=false`.
 - [ ] Railway healthcheck passes on `/health`.
 - [ ] Open app URL and verify admin login works.
 - [ ] Open app URL and verify student login works.
@@ -120,4 +122,5 @@ DB_NAME=ug_feedback_db
 - Feedback window availability is evaluated against current datetime and period status (`is_closed`).
 - `before_request` auto-check activates scheduled periods during runtime.
 - Health endpoint available at `/health` for Railway checks.
+- Startup seeding is controlled by `SEED_TEST_USERS` in `start.sh`.
 - Update `SECRET_KEY` and admin credentials before production usage.
